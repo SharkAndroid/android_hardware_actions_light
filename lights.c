@@ -132,7 +132,7 @@ static int getBrightnessByLineMapping(int brightness) {
 	    double m[MAPPING_POINT_NUM];
 	    double n[MAPPING_POINT_NUM];
 	    for(i = 0; i < MAPPING_POINT_NUM; i++) {
-		    m[i] = android_backlight_percentage_array[i] * BRIGHTNESS_ON;
+		    m[i] = android_backlight_percentage_array[i] * 255;
 		    n[i] = actual_backlight_percentage_array[i] * (max_brightness -  dim_brightness) + dim_brightness;
 		    if(i > 0) {
 		    	coeffs[i-1] = get_line_coefficient(m[i-1], n[i-1], m[i], n[i]);
@@ -144,7 +144,7 @@ static int getBrightnessByLineMapping(int brightness) {
 	if (brightness) {
 		int i =1;
 		for(; i < MAPPING_POINT_NUM; i++) {
-			if(brightness <= android_backlight_percentage_array[i] * BRIGHTNESS_ON) {
+			if(brightness <= android_backlight_percentage_array[i] * 255) {
 				break;
 			}
 		}
