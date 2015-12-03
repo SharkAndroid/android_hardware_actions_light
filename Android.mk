@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Light driver for ATM702X
-ifeq ($(strip $(BOARD_USES_ACTIONS_LIGHT)), true)
+ifeq ($(BOARD_HAVE_ACTIONS_LIGHT), true)
 
 LOCAL_PATH := $(call my-dir)
 
