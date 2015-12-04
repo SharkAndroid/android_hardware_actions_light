@@ -33,14 +33,14 @@
 #include <hardware/lights.h>
 
 #define MAPPING_POINT_NUM 3
-static double android_backlight_percentage_array[MAPPING_POINT_NUM] = {0, 0.5f, 1};
-static double actual_backlight_percentage_array[MAPPING_POINT_NUM] = {0, 0.3f, 1};
+static double android_backlight_percentage_array[MAPPING_POINT_NUM] = { 0, 0.5f, 1 };
+static double actual_backlight_percentage_array[MAPPING_POINT_NUM] = { 0, 0.3f, 1 };
 
 struct line_coefficient_t {
-	double a;
-	double b;
+    double a;
+    double b;
 };
-/******************************************************************************/
+
 static pthread_once_t g_init = PTHREAD_ONCE_INIT;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -50,42 +50,40 @@ static int dim_brightness = -1;
 char const *const LCD_FILE = "/sys/class/backlight/act_pwm_backlight/brightness";
 char const *const LCD_FILE_MAX = "/sys/class/backlight/act_pwm_backlight/max_brightness";
 char const *const LCD_FILE_MIN = "/sys/class/backlight/act_pwm_backlight/min_brightness";
+
 /**
  * device methods
  */
-
-void init_globals(void)
-{
+void init_globals(void) {
     // init the mutex
     pthread_mutex_init(&g_lock, NULL);
 }
 
-static int write_int(char const *path, int value)
-{
-	int fd;
-	
-	fd = open(path, O_RDWR, 0);
-	
-	//ALOGI("write_int: path %s, value %d", path, value);
-	//ALOGI("max_brightness = %d, dim_brightness = %d", max_brightness, dim_brightness);
+static int write_int(char const *path, int value) {
+    int fd;
+    
+    fd = open(path, O_RDWR, 0);
+    
+    //ALOGI("write_int: path %s, value %d", path, value);
+    //ALOGI("max_brightness = %d, dim_brightness = %d", max_brightness, dim_brightness);
 
-	if (fd >= 0) {
-		char buffer[20];
-		int bytes = sprintf(buffer, "%d\n", value);
-		int amt = write(fd, buffer, bytes);
-		close(fd);
-		return amt == -1 ? -errno : 0;
-	} else {
-	    ALOGE("write_int failed to open %s\n", path);
-	    ALOGE("fd=%d errno=%d (%s)", fd, errno, strerror(errno));
-		return -errno;
-	}
+    if (fd >= 0) {
+        char buffer[20];
+        int bytes = sprintf(buffer, "%d\n", value);
+        int amt = write(fd, buffer, bytes);
+        close(fd);
+        return amt == -1 ? -errno : 0;
+    } else {
+        ALOGE("write_int failed to open %s\n", path);
+        ALOGE("fd=%d errno=%d (%s)", fd, errno, strerror(errno));
+        return -errno;
+    }
 }
 
-static int readFromFile(const char* path, char* buf, size_t size)
-{
-    if (!path)
+static int readFromFile(const char* path, char* buf, size_t size) {
+    if (!path) {
         return -1;
+    }
     int fd = open(path, O_RDONLY, 0);
     if (fd == -1) {
         ALOGE("Could not open '%s'", path);
@@ -106,12 +104,11 @@ static int readFromFile(const char* path, char* buf, size_t size)
     return count;
 }
 
-static int rgb_to_brightness(struct light_state_t const *state)
-{
-	int color = state->color & 0x00ffffff;
+static int rgb_to_brightness(struct light_state_t const *state) {
+    int color = state->color & 0x00ffffff;
 
-	return ((77*((color>>16) & 0x00ff))
-		+ (150*((color>>8) & 0x00ff)) + (29*(color & 0x00ff))) >> 8;
+    return ((77*((color>>16) & 0x00ff))
+        + (150*((color>>8) & 0x00ff)) + (29*(color & 0x00ff))) >> 8;
 }
 
 static struct line_coefficient_t get_line_coefficient(double x0, double y0, double x1, double y1) {
@@ -124,80 +121,72 @@ static struct line_coefficient_t get_line_coefficient(double x0, double y0, doub
 }
 
 static int getBrightnessByLineMapping(int brightness) {
-	static int coeff_inited = 0;
-	static struct line_coefficient_t coeffs[MAPPING_POINT_NUM-1];
-	
-	if (!coeff_inited) {
-		int i = 0;
-	    double m[MAPPING_POINT_NUM];
-	    double n[MAPPING_POINT_NUM];
-	    for(i = 0; i < MAPPING_POINT_NUM; i++) {
-		    m[i] = android_backlight_percentage_array[i] * 255;
-		    n[i] = actual_backlight_percentage_array[i] * (max_brightness -  dim_brightness) + dim_brightness;
-		    if(i > 0) {
-		    	coeffs[i-1] = get_line_coefficient(m[i-1], n[i-1], m[i], n[i]);
-		    }
-	    }
-	    coeff_inited = 1;
-	}
+    static int coeff_inited = 0;
+    static struct line_coefficient_t coeffs[MAPPING_POINT_NUM-1];
+    
+    if (!coeff_inited) {
+        int i = 0;
+        double m[MAPPING_POINT_NUM];
+        double n[MAPPING_POINT_NUM];
+        for(i = 0; i < MAPPING_POINT_NUM; i++) {
+            m[i] = android_backlight_percentage_array[i] * 255;
+            n[i] = actual_backlight_percentage_array[i] * (max_brightness -  dim_brightness) + dim_brightness;
+            if(i > 0) {
+                coeffs[i-1] = get_line_coefficient(m[i-1], n[i-1], m[i], n[i]);
+            }
+        }
+        coeff_inited = 1;
+    }
 
-	if (brightness) {
-		int i =1;
-		for(; i < MAPPING_POINT_NUM; i++) {
-			if(brightness <= android_backlight_percentage_array[i] * 255) {
-				break;
-			}
-		}
-		
-		brightness = coeffs[i-1].a*brightness + coeffs[i-1].b;
-	}
+    if (brightness) {
+        int i =1;
+        for(; i < MAPPING_POINT_NUM; i++) {
+            if(brightness <= android_backlight_percentage_array[i] * 255) {
+                break;
+            }
+        }
+        
+        brightness = coeffs[i-1].a*brightness + coeffs[i-1].b;
+    }
 
-	return brightness;
+    return brightness;
 }
 
-static int set_light_backlight(struct light_device_t *dev,
-			struct light_state_t const *state)
-{
-	int err = 0;	
-	int brightness = rgb_to_brightness(state);
+static int set_light_backlight(struct light_device_t *dev, struct light_state_t const *state) {
+    int err = 0;    
+    int brightness = rgb_to_brightness(state);
 
     brightness = getBrightnessByLineMapping(brightness);
 
-	pthread_mutex_lock(&g_lock);
-	err = write_int(LCD_FILE, brightness);
-	pthread_mutex_unlock(&g_lock);
+    pthread_mutex_lock(&g_lock);
+    err = write_int(LCD_FILE, brightness);
+    pthread_mutex_unlock(&g_lock);
 
-	return err;
+    return err;
 }
 
 /** Close the lights device */
-static int close_lights(struct light_device_t *dev) 
-{
+static int close_lights(struct light_device_t *dev) {
     if (dev) {
         free(dev);
     }
     return 0;
 }
-/******************************************************************************/
 
 /**
  * module methods
  */
 
 /** Open a new instance of a lights device using name */
-static int open_lights(const struct hw_module_t* module, char const* name,
-        struct hw_device_t** device)
-{
-	static bool first_open = true;
-	char buf[10];
-    int (*set_light)(struct light_device_t* dev,
-            struct light_state_t const* state);
+static int open_lights(const struct hw_module_t* module, char const* name, struct hw_device_t** device) {
+    static bool first_open = true;
+    char buf[10];
+    int (*set_light)(struct light_device_t* dev, struct light_state_t const* state);
 
     if (0 == strcmp(LIGHT_ID_BACKLIGHT, name)) {
         set_light = set_light_backlight;
         ALOGD("open_lights: (%s)\n", name); 
-    }
-    else {
+    } else {
         return -EINVAL;
     }
 
@@ -216,23 +205,23 @@ static int open_lights(const struct hw_module_t* module, char const* name,
 
     pthread_mutex_lock(&g_lock);
     if (first_open) {
-		if (readFromFile(LCD_FILE_MAX, buf, 10) == -1) {
+        if (readFromFile(LCD_FILE_MAX, buf, 10) == -1) {
             pthread_mutex_unlock(&g_lock);
             return -1;
-		}
+        }
 
-		max_brightness = atoi(buf);
+        max_brightness = atoi(buf);
 
-		if (readFromFile(LCD_FILE_MIN, buf, 10) == -1) {
+        if (readFromFile(LCD_FILE_MIN, buf, 10) == -1) {
             pthread_mutex_unlock(&g_lock);
             return -1;
-		}
+        }
 
-		dim_brightness = atoi(buf);
+        dim_brightness = atoi(buf);
 
-  		first_open = false;
-	}
-	pthread_mutex_unlock(&g_lock);
+        first_open = false;
+    }
+    pthread_mutex_unlock(&g_lock);
     ALOGD("open_lights: (%s) , Ok.\n", name); 
     return 0;
 }
@@ -245,11 +234,11 @@ static struct hw_module_methods_t lights_module_methods = {
  * The lights Module
  */
 struct hw_module_t HAL_MODULE_INFO_SYM = {
-	.tag = HARDWARE_MODULE_TAG,
-	.version_major = 1,
-	.version_minor = 0,
-	.id = LIGHTS_HARDWARE_MODULE_ID,
-	.name = "Lights Module",
-	.author = "Actions-Semi, Inc.",
-	.methods = &lights_module_methods,
+    .tag = HARDWARE_MODULE_TAG,
+    .version_major = 1,
+    .version_minor = 0,
+    .id = LIGHTS_HARDWARE_MODULE_ID,
+    .name = "Lights Module",
+    .author = "Actions-Semi, Inc.",
+    .methods = &lights_module_methods,
 };
